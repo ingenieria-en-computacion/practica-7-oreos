@@ -1,5 +1,5 @@
 #define CIRCULAR_LINKED_LIST_IMPLEMENTATION
-#include "cirularlinkedlist.h"
+#include "circularlinkedlist.h"
 #include <stdio.h>
 
 void print_int(int value) {
