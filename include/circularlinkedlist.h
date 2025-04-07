@@ -12,12 +12,11 @@
         TYPE data; \
         struct Node_##TYPE* next; \
     } Node_##TYPE; \
-    Node_##TYPE* node_##TYPE##__create(TYPE);\
-    Node_##TYPE* node_##TYPE##_destroy(Node_##TYPE*);\
+    Node_##TYPE* node_##TYPE##__create(TYPE); \
+    Node_##TYPE* node_##TYPE##_destroy(Node_##TYPE*); \
     \
     typedef struct { \
         Node_##TYPE* head; \
-        Node_##TYPE* tail; \
         size_t length; \
     } List_##TYPE; \
     \
@@ -28,59 +27,65 @@
     bool list_##TYPE##_remove_at(List_##TYPE* list, size_t pos); \
     bool list_##TYPE##_get(const List_##TYPE* list, size_t pos, TYPE* out); \
     size_t list_##TYPE##_length(const List_##TYPE* list); \
-    void list_##TYPE##_print(const List_##TYPE* list, void (*print_fn)(TYPE));
+void list_##TYPE##_print(const List_##TYPE* list, void (*print_fn)(TYPE));
 
 // ----------------------------
 // Macro para implementación
 // ----------------------------
 #define IMPLEMENT_LINKED_LIST(TYPE) \
-    Node_##TYPE* node_##TYPE##__create(TYPE data){\
+    Node_##TYPE* node_##TYPE##__create(TYPE data){ \
         Node_##TYPE* new_node = malloc(sizeof(Node_##TYPE)); \
-        new_node->data = data;\
-        new_node->next = NULL;\
-        return new_node;\
-    }\
+        new_node->data = data; \
+        new_node->next = NULL; \
+        return new_node; \
+    } \
     \
-    Node_##TYPE* node_##TYPE##_destroy(Node_##TYPE *node){\
-        if(node->next ==NULL){\
-            free(node);\
-            return NULL;\
-        }\
-        return node;\
-    }\
+    Node_##TYPE* node_##TYPE##_destroy(Node_##TYPE* node){ \
+        free(node); \
+        return NULL; \
+    } \
     List_##TYPE* list_##TYPE##_create(void) { \
         List_##TYPE* list = malloc(sizeof(List_##TYPE)); \
         if (!list) return NULL; \
-        list->head = list->tail = NULL; \
+        list->head = NULL; \
         list->length = 0; \
         return list; \
     } \
     \
     void list_##TYPE##_destroy(List_##TYPE* list) { \
         if (!list) return; \
+        if (list->length == 0) { \
+            free(list); \
+            return; \
+        } \
         Node_##TYPE* current = list->head; \
-        while (current) { \
-            Node_##TYPE* temp = current; \
+        Node_##TYPE* temp = NULL; \
+        do { \
+            temp = current; \
             current = current->next; \
             free(temp); \
-        } \
+        } while (current != list->head); \
         free(list); \
     } \
     \
     bool list_##TYPE##_insert(List_##TYPE* list, TYPE data, size_t pos) { \
         if (!list || pos > list->length) return false; \
-        \
-        Node_##TYPE* new_node = node_##TYPE##_create(data); \
-        if (!new_node) return false; \        
+        Node_##TYPE* new_node = node_##TYPE##__create(data); \
+        if (!new_node) return false; \
         \
         if (pos == 0) { \
-            new_node->next = list->head; \
-            list->head = new_node; \
-            if (!list->tail) list->tail = new_node; \
-        } else if (pos == list->length) { \
-            new_node->next = NULL; \
-            list->tail->next = new_node; \
-            list->tail = new_node; \
+            if (list->length == 0) { \
+                new_node->next = new_node; \
+                list->head = new_node; \
+            } else { \
+                Node_##TYPE* tail = list->head; \
+                while (tail->next != list->head) { \
+                    tail = tail->next; \
+                } \
+                tail->next = new_node; \
+                new_node->next = list->head; \
+                list->head = new_node; \
+            } \
         } else { \
             Node_##TYPE* current = list->head; \
             for (size_t i = 0; i < pos - 1; ++i) { \
@@ -89,7 +94,6 @@
             new_node->next = current->next; \
             current->next = new_node; \
         } \
-        \
         list->length++; \
         return true; \
     } \
@@ -102,11 +106,18 @@
         if (!list || pos >= list->length) return false; \
         \
         Node_##TYPE* to_delete = NULL; \
-        \
         if (pos == 0) { \
             to_delete = list->head; \
-            list->head = list->head->next; \
-            if (!list->head) list->tail = NULL; \
+            if (list->length == 1) { \
+                list->head = NULL; \
+            } else { \
+                Node_##TYPE* tail = list->head; \
+                while (tail->next != list->head) { \
+                    tail = tail->next; \
+                } \
+                list->head = list->head->next; \
+                tail->next = list->head; \
+            } \
         } else { \
             Node_##TYPE* current = list->head; \
             for (size_t i = 0; i < pos - 1; ++i) { \
@@ -114,11 +125,7 @@
             } \
             to_delete = current->next; \
             current->next = to_delete->next; \
-            if (pos == list->length - 1) { \
-                list->tail = current; \
-            } \
         } \
-        \
         free(to_delete); \
         list->length--; \
         return true; \
@@ -126,12 +133,10 @@
     \
     bool list_##TYPE##_get(const List_##TYPE* list, size_t pos, TYPE* out) { \
         if (!list || !out || pos >= list->length) return false; \
-        \
         Node_##TYPE* current = list->head; \
         for (size_t i = 0; i < pos; ++i) { \
             current = current->next; \
         } \
-        \
         *out = current->data; \
         return true; \
     } \
@@ -140,81 +145,16 @@
         return list ? list->length : 0; \
     } \
     \
-    bool list_##TYPE##_is_empty(const List_##TYPE* list) { \
-        return list ? list->length == 0 : true; \
-    } \
-    \
-    void list_##TYPE##_clear(List_##TYPE* list) { \
-        if (!list) return; \
-        \
-        Node_##TYPE* current = list->head; \
-        while (current) { \
-            Node_##TYPE* temp = current; \
-            current = current->next; \
-            free(temp); \
-        } \
-        \
-        list->head = list->tail = NULL; \
-        list->length = 0; \
-    } \
-    \
     void list_##TYPE##_print(const List_##TYPE* list, void (*print_fn)(TYPE)) { \
-        if (!list || !print_fn) return; \
-        \
+        if (!list || !print_fn || list->length == 0) return; \
         printf("["); \
         Node_##TYPE* current = list->head; \
-        while (current) { \
+        do { \
             print_fn(current->data); \
-            if (current->next) printf(", "); \
+            if (current->next != list->head) printf(", "); \
             current = current->next; \
-        } \
+        } while (current != list->head); \
         printf("]\n"); \
-    } \
-    \
-    bool list_##TYPE##_contains(const List_##TYPE* list, TYPE data) { \
-        if (!list) return false; \
-        \
-        Node_##TYPE* current = list->head; \
-        while (current) { \
-            if (current->data == data) { \
-                return true; \
-            } \
-            current = current->next; \
-        } \
-        \
-        return false; \
-    } \
-    \
-    bool list_##TYPE##_remove(List_##TYPE* list, TYPE data) { \
-        if (!list) return false; \
-        \
-        Node_##TYPE* prev = NULL; \
-        Node_##TYPE* current = list->head; \
-        \
-        while (current) { \
-            if (current->data == data) { \
-                if (prev) { \
-                    prev->next = current->next; \
-                    if (!current->next) { \
-                        list->tail = prev; \
-                    } \
-                } else { \
-                    list->head = current->next; \
-                    if (!list->head) { \
-                        list->tail = NULL; \
-                    } \
-                } \
-                \
-                free(current); \
-                list->length--; \
-                return true; \
-            } \
-            \
-            prev = current; \
-            current = current->next; \
-        } \
-        \
-        return false; \
     }
 
 // ----------------------------
